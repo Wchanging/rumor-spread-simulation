@@ -227,11 +227,11 @@ class ExperimentRecorder:
 
         reasons: list[str] = []
         if max_belief >= self.risk_belief_threshold:
-            reasons.append(f"高误信倾向(max_belief={max_belief:.3f})")
+            reasons.append(f"High misbelief tendency (max_belief={max_belief:.3f})")
         if rumor_shared_count > 0:
-            reasons.append(f"当轮传播谣言(rumor_shared={rumor_shared_count})")
+            reasons.append(f"Shared rumor this round (rumor_shared={rumor_shared_count})")
         if platform_trust < self.risk_low_trust_threshold:
-            reasons.append(f"平台信任偏低(platform_trust={platform_trust:.3f})")
+            reasons.append(f"Low platform trust (platform_trust={platform_trust:.3f})")
 
         is_high_risk = score >= self.risk_score_threshold or rumor_shared_count >= 2
         return {

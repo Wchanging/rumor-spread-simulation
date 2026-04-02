@@ -1148,23 +1148,23 @@ def _build_rq_key_table(rq: str, agg_rows: list[dict[str, Any]], dest_dir: Path)
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "按单个RQ生成表格/图像。"
-            "每次仅处理 rq1/rq2/rq3/rq4 之一，且必须显式提供 source 路径（run_* 或 exp_*）。"
+            "Generate tables/figures for a single RQ. "
+            "Process only one of rq1/rq2/rq3/rq4 per run and require explicit source paths (run_* or exp_*)."
         )
     )
-    parser.add_argument("--rq", type=str, required=True, choices=["rq1", "rq2", "rq3", "rq4"], help="仅生成一个RQ")
+    parser.add_argument("--rq", type=str, required=True, choices=["rq1", "rq2", "rq3", "rq4"], help="Generate only one RQ")
     parser.add_argument(
         "--source",
         type=str,
         action="append",
         required=True,
-        help="可重复传入；支持 run_* 目录或 exp_* 目录，支持相对/绝对路径",
+        help="Repeatable; supports run_* or exp_* directories with relative/absolute paths",
     )
     parser.add_argument("--configs-dir", type=str, default="configs")
     parser.add_argument("--dest-dir", type=str, default="")
     parser.add_argument("--dest-root", type=str, default="output/paper_reports")
     parser.add_argument("--report-name", type=str, default="")
-    parser.add_argument("--baseline-experiment", type=str, default="exp_rq2_sw_no", help="RQ3收益图的基线实验名")
+    parser.add_argument("--baseline-experiment", type=str, default="exp_rq2_sw_no", help="Baseline experiment name for RQ3 gain plots")
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parents[1]
@@ -1180,7 +1180,7 @@ def main() -> None:
     for source_text in args.source:
         source_path = _resolve_path(project_root, source_text)
         if not source_path.exists():
-            print(f"[warn] source 不存在，已跳过: {source_path}")
+            print(f"[warn] source path does not exist, skipped: {source_path}")
             continue
         run_dirs.extend(_discover_runs_from_source(source_path))
 
@@ -1195,7 +1195,7 @@ def main() -> None:
     run_dirs = dedup
 
     if not run_dirs:
-        raise RuntimeError("未发现可用 run_* 目录。请通过 --source 提供 run_* 或 exp_* 路径。")
+        raise RuntimeError("No usable run_* directory found. Provide run_* or exp_* paths via --source.")
 
     run_rows: list[dict[str, Any]] = []
     baseline_exp_lower = str(args.baseline_experiment).strip().lower()
@@ -1212,7 +1212,7 @@ def main() -> None:
         run_rows.append(row)
 
     if not run_rows:
-        raise RuntimeError(f"给定 source 下没有匹配 {args.rq.upper()} 的运行结果。")
+        raise RuntimeError(f"No run results matching {args.rq.upper()} were found under the given source paths.")
 
     run_fieldnames = [
         "run_dir",

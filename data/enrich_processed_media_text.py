@@ -246,23 +246,23 @@ def _enrich_single_file(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="为 processed 事件帖子增量生成/回填 MediaText（复用 VLM 缓存）。")
+    parser = argparse.ArgumentParser(description="Incrementally generate/backfill MediaText for processed event posts (reusing VLM cache).")
     parser.add_argument(
         "--data-dir",
         type=str,
         default="",
-        help="事件帖子目录，默认 data/processed/events_12",
+        help="Event post directory, default: data/processed/events_12",
     )
-    parser.add_argument("--force", action="store_true", help="强制重生成所有含媒体的帖子描述")
-    parser.add_argument("--dry-run", action="store_true", help="仅统计不落盘")
-    parser.add_argument("--no-progress", action="store_true", help="关闭 tqdm 进度条")
-    parser.add_argument("--env-file", type=str, default="", help="指定 .env 文件路径，默认项目根目录 .env")
+    parser.add_argument("--force", action="store_true", help="Force regeneration for all media-containing posts")
+    parser.add_argument("--dry-run", action="store_true", help="Only count changes without writing files")
+    parser.add_argument("--no-progress", action="store_true", help="Disable tqdm progress bars")
+    parser.add_argument("--env-file", type=str, default="", help="Specify .env file path (default: project root .env)")
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parents[1]
     env_path = Path(args.env_file).resolve() if args.env_file else (project_root / ".env")
     if args.env_file and not env_path.exists():
-        raise RuntimeError(f"指定的 env 文件不存在：{env_path}")
+        raise RuntimeError(f"Specified env file does not exist: {env_path}")
     if env_path.exists():
         _load_env_file(env_path)
         os.environ.setdefault("MEDIA_ENV_FILE", str(env_path))
@@ -275,11 +275,11 @@ def main() -> None:
     data_dir = Path(args.data_dir).resolve() if args.data_dir else project_root / "data" / "processed" / "events_12"
 
     if not data_dir.exists() or not data_dir.is_dir():
-        raise RuntimeError(f"目录不存在：{data_dir}")
+        raise RuntimeError(f"Directory does not exist: {data_dir}")
 
     files = _iter_event_files(data_dir)
     if not files:
-        raise RuntimeError(f"未找到事件帖子文件（event*.csv）：{data_dir}")
+        raise RuntimeError(f"No event post files found (event*.csv): {data_dir}")
 
     clean_stats = CleanStats()
     media_cfg = MediaProcessConfig(
@@ -295,10 +295,10 @@ def main() -> None:
 
     if media_cfg.enable_vlm and getattr(media_enricher, "_vlm_client", None) is None:
         init_error = str(getattr(media_enricher, "_vlm_init_error", "") or "").strip()
-        detail = f" 具体错误：{init_error}" if init_error else ""
+        detail = f" Details: {init_error}" if init_error else ""
         raise RuntimeError(
-            "VLM 客户端初始化失败。请检查 OPENAI_API_KEY / OPENAI_BASE_URL / MEDIA_VLM_MODEL 配置后重试。"
-            f"（已尝试读取 env：{env_path if env_path.exists() else '未找到 .env'}）{detail}"
+            "VLM client initialization failed. Check OPENAI_API_KEY / OPENAI_BASE_URL / MEDIA_VLM_MODEL and retry."
+            f" (Tried env: {env_path if env_path.exists() else 'no .env found'}){detail}"
         )
 
     run_stats = EnrichStats()

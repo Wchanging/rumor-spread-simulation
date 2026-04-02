@@ -219,7 +219,7 @@ class SimulationEngine:
             return None
         if tqdm is None:
             if not self._warned_tqdm_unavailable:
-                print("[runtime] tqdm 未安装，已自动跳过进度条显示。")
+                print("[runtime] tqdm is not installed; progress bars are disabled automatically.")
                 self._warned_tqdm_unavailable = True
             return None
         return tqdm(total=total, desc=desc, leave=False, mininterval=self.progress_mininterval)

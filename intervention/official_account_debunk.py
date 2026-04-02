@@ -98,7 +98,7 @@ class OfficialAccountDebunk(InterventionStrategy):
             if source_post is not None:
                 source_snippet = (source_post.text or "").strip()[:160]
                 if source_snippet:
-                    evidence_text = f"{event.evidence}\n池中素材摘要：{source_snippet}"
+                    evidence_text = f"{event.evidence}\nSource-pool snippet summary: {source_snippet}"
 
             text = self._generator.generate(
                 style=self.tone_style,

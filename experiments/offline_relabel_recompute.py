@@ -470,23 +470,23 @@ def _recompute_run(run_dir: Path, inplace: bool = False, neutral_band: float = 0
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="离线重标 share/rewrite_share 内容并回算曝光相关指标")
+    parser = argparse.ArgumentParser(description="Offline relabeling of share/rewrite_share content and recomputation of exposure-related metrics")
     parser.add_argument(
         "--source",
         action="append",
         required=True,
-        help="实验目录或 run 目录，可重复提供",
+        help="Experiment directory or run directory; can be provided multiple times",
     )
     parser.add_argument(
         "--inplace",
         action="store_true",
-        help="原地覆盖 metrics_history 与 checkpoint/summary 中曝光相关字段（会自动保留 original 备份）",
+        help="Overwrite exposure-related fields in metrics_history and checkpoint/summary in place (keeps original backups automatically)",
     )
     parser.add_argument(
         "--neutral-band",
         type=float,
         default=0.0,
-        help="中性区间半径。仅当 belief_score < -neutral_band 才将 fake 转发重标为 debunk；默认 0.0（旧口径）",
+        help="Neutral-zone radius. Only relabel fake shares to debunk when belief_score < -neutral_band; default 0.0 (legacy behavior)",
     )
     return parser
 
@@ -502,7 +502,7 @@ def main() -> None:
 
     deduped = sorted({str(p): p for p in run_dirs}.values(), key=lambda p: str(p))
     if not deduped:
-        print("[WARN] 未发现可处理的 run 目录。")
+        print("[WARN] No processable run directories were found.")
         return
 
     results: list[dict[str, Any]] = []

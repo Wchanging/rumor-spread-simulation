@@ -160,10 +160,10 @@ class MediaEnricher:
         if not img_urls and not video_urls:
             return ""
 
-        base_summary = f"图片{len(img_urls)}张，视频{len(video_urls)}个"
+        base_summary = f"{len(img_urls)} image(s), {len(video_urls)} video(s)"
         vlm_summary = self._vlm_caption(img_urls=img_urls, video_urls=video_urls, post_text=post_text)
         if vlm_summary:
-            return f"{base_summary}；媒体语义：{vlm_summary}"
+            return f"{base_summary}; media semantics: {vlm_summary}"
         return base_summary
 
     def _vlm_caption(self, img_urls: list[str], video_urls: list[str], post_text: str) -> str:
@@ -182,12 +182,12 @@ class MediaEnricher:
             value = self.cache.get(cache_key, "")
             return str(value) if value else ""
 
-        video_context = "\n".join(f"- {url}" for url in video_urls) if video_urls else "无"
+        video_context = "\n".join(f"- {url}" for url in video_urls) if video_urls else "None"
         prompt = (
-            "请结合帖子文本与媒体信息，输出一句客观、简洁的媒体内容描述（不超过200字），"
-            "尽量描述画面/场景本身，不要添加推测或价值判断。"
-            f"\n帖子文本：{(post_text or '')[:200]}"
-            f"\n视频链接（可辅助理解上下文，不要求逐条解释）：\n{video_context}"
+            "Using the post text and media information, output one objective and concise media description (<=200 chars)."
+            " Focus on visible scene/content and avoid speculation or value judgment."
+            f"\nPost text: {(post_text or '')[:200]}"
+            f"\nVideo links (context only; no need to explain each one):\n{video_context}"
         )
         candidate_sets: list[list[str]] = []
         candidate_sets.append(list(img_urls))
@@ -301,7 +301,7 @@ def parse_eventset_line(line: str) -> dict | None:
 def clean_events_csv(raw_events_path: Path, out_events_path: Path) -> list[dict]:
     lines = raw_events_path.read_text(encoding="utf-8-sig").splitlines()
     if not lines:
-        raise RuntimeError("事件集.csv 为空")
+        raise RuntimeError("Event set CSV is empty")
 
     cleaned_rows: list[dict] = []
     for idx, line in enumerate(lines[1:], start=1):

@@ -1,0 +1,3 @@
+Event,Description,IsFake,Evidence,Posts,EvidencePosts
+event_demo,某突发事件出现未经证实传言,1,官方渠道提示该传言不实,"[\"Post_1\",\"Post_2\"]","[\"Post_2\"]"
+event_real,某部门发布正式通报信息,0,多家权威媒体一致报道,"[\"Post_3\",\"Post_4\"]",[]

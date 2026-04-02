@@ -88,17 +88,18 @@ class BeliefUpdateModule:
                         )
                 else:
                     truth_text = (
-                        f"内容是否谣言={int(content.is_rumor)}; "
+                        f"content_is_rumor={int(content.is_rumor)}; "
                         if (not self.blind_user_mode or self.use_truth_label_in_prompt)
                         else ""
                     )
                     prompt = (
-                        f"用户当前对事件真实性的信念={current:.3f}; 平台信任={user_state.platform_trust:.3f}; "
-                        f"{truth_text}内容={content.text}。"
-                        "\n请输出[-1,1]范围内的单个浮点数，表示“对该事件真实性信念”的增量建议。"
-                        "正数=更相信该事件原始说法成立；负数=更不相信该事件原始说法。"
-                        "如果当前内容是你认为是辟谣且可信，通常应输出负数；如果当前内容在支持该说法且你认为可信，通常应输出正数。"
-                        "请严格只输出数字，不要输出任何额外解释或文本。"
+                        f"Current belief on event truthfulness={current:.3f}; platform_trust={user_state.platform_trust:.3f}; "
+                        f"{truth_text}content={content.text}."
+                        "\nOutput one float in [-1,1] as the suggested delta for belief in the original event claim."
+                        "Positive means more belief in the original claim; negative means less belief in the original claim."
+                        "If this content is credible debunking, the value should usually be negative."
+                        "If this content supports the original claim and is credible, the value can be positive."
+                        "Output only the numeric value with no extra text."
                     )
                     llm_resp = self.llm_client.generate(prompt)
                     llm_raw = llm_resp
@@ -147,10 +148,10 @@ class BeliefUpdateModule:
             memory_lines.append(
                 f"{idx}) t={item.get('timestep')}, thought={item.get('thought', '')}, belief_after={item.get('belief_after')}"
             )
-        memory_block = "\n".join(memory_lines) if memory_lines else "无"
+        memory_block = "\n".join(memory_lines) if memory_lines else "None"
         long_memory_block = str(long_term_memory or "").strip()
         if not long_memory_block:
-            long_memory_block = "无"
+            long_memory_block = "None"
 
         profile = {
             "user_id": user_state.user_id,
@@ -169,37 +170,35 @@ class BeliefUpdateModule:
             "trust_threshold": round(float(user_state.trust_threshold), 4),
         }
 
-        event_line = f"\n当前事件: {content.event_id}"
+        event_line = f"\nCurrent event: {content.event_id}"
         if (not self.blind_user_mode) or self.use_truth_label_in_prompt:
-            event_line += f", 是否谣言={int(content.is_rumor)}"
+            event_line += f", is_rumor={int(content.is_rumor)}"
 
         prompt = (
-            "请按要求完成本轮用户行为判断。"
-            f"\n用户画像：{json.dumps(profile, ensure_ascii=False)}"
+            "Complete the user behavior decision for this round."
+            f"\nUser profile: {json.dumps(profile, ensure_ascii=False)}"
             f"{event_line}"
-            f"\n当前态度belief={current_belief:.3f}"
-            f"\n当前内容：{(content.text or '')[:800]}"
-            f"\n该事件最近记忆：\n{memory_block}"
-            f"\n该事件长期记忆（累计总结）：\n{long_memory_block}"
+            f"\nCurrent belief={current_belief:.3f}"
+            f"\nCurrent content: {(content.text or '')[:800]}"
+            f"\nRecent event memories:\n{memory_block}"
+            f"\nLong-term event memory (cumulative summary):\n{long_memory_block}"
         )
         system_prompt = (
-            "你是社交平台用户行为模拟器。"
-            "请代入给定用户身份，从用户第一视角进行认知更新与行为决策。"
-            "你必须严格只输出一个 JSON 对象，不要输出任何额外解释或markdown。"
-            "JSON 字段固定为："
-            "belief_delta(float,-1到1), confidence(float,0到1), thought(string,<=120字),"
-            "suggested_like(bool), suggested_share(bool), suggested_rewrite(bool), rewrite_text(string,<=220字),"
-            "platform_trust_delta(float,-1到1), long_term_memory_update(string,<=300字)。"
-            "其中，belief_delta 表示“用户对当前事件真实性信念”的增量建议，而不是对帖子文字本身的好感。"
-            "正数表示更相信该事件原始说法成立；负数表示更不相信该事件原始说法。"
-            "例如：看到可信辟谣后应倾向输出负数；看到支持原说法且你认为可信时可输出正数。"
-            "platform_trust_delta 表示本次接触内容后用户对平台信任的增量：正数=更信任平台，负数=更不信任平台。"
-            "long_term_memory_update 表示“结合当前内容后，该事件的长期总结记忆（更新版）”，应是凝练、可累积的摘要。"
-            "当你对该事件的态度出现明显‘由信转疑’（例如 belief_delta 为显著负值，且内容像辟谣/澄清）时，"
-            "可适度提高 suggested_share 或 suggested_rewrite 的概率，用于提醒他人核验信息；"
-            "但要保持自然，不要机械地总是分享。"
-            "confidence 表示你对这个增量建议的信心程度，范围在0到1之间；thought 是你做出这个判断时的内心独白，可以包含你的分析和推理过程；suggested_like/suggested_share/suggested_rewrite 分别表示你是否建议用户点赞/分享/改写这条内容；rewrite_text 是如果建议改写时的改写文本。请确保输出的 JSON 格式正确，并且字段值符合要求。"
-            "请根据用户画像、当前内容和事件信息，以及最近的相关记忆，综合分析并给出你的判断。"
+            "You are a social-platform user behavior simulator."
+            " Act as the given user and make cognition/action decisions in first person."
+            " Output exactly one JSON object and nothing else."
+            " Required fields: belief_delta(float,-1..1), confidence(float,0..1), thought(string,<=120 chars),"
+            " suggested_like(bool), suggested_share(bool), suggested_rewrite(bool), rewrite_text(string,<=220 chars),"
+            " platform_trust_delta(float,-1..1), long_term_memory_update(string,<=300 chars)."
+            " belief_delta is the change in belief about the event's original claim (not wording sentiment)."
+            " Positive means stronger belief in the original claim; negative means weaker belief."
+            " For credible debunking content, belief_delta should usually be negative."
+            " platform_trust_delta is trust change after this exposure: positive=more trust, negative=less trust."
+            " long_term_memory_update should be concise and accumulative."
+            " If the stance shifts from believing to doubting, you may moderately increase share/rewrite probability"
+            " to encourage fact-checking, but keep behavior natural."
+            " confidence is confidence in the delta (0..1), and thought is a short inner monologue."
+            " Ensure valid JSON and field constraints."
         )
         llm_resp = self.llm_client.generate(prompt, system_prompt=system_prompt)
         payload = self._parse_json_payload(llm_resp)

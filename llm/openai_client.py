@@ -45,7 +45,7 @@ class OpenAIClient(LLMClient):
         try:
             from openai import OpenAI
         except Exception as exc:
-            raise RuntimeError("未安装 openai 包，请先安装：pip install openai") from exc
+            raise RuntimeError("The openai package is not installed. Please run: pip install openai") from exc
 
         self.model = model
         self.vision_model = vision_model or model
@@ -81,7 +81,7 @@ class OpenAIClient(LLMClient):
 
         api_key = str(llm_config.get("api_key") or os.getenv(str(llm_config.get("api_key_env", "OPENAI_API_KEY")), ""))
         if not api_key:
-            raise RuntimeError("未找到 OpenAI API Key，请在 .env 或环境变量中设置 OPENAI_API_KEY。")
+            raise RuntimeError("OpenAI API key not found. Set OPENAI_API_KEY in .env or environment variables.")
 
         base_url = llm_config.get("base_url") or os.getenv(str(llm_config.get("base_url_env", "OPENAI_BASE_URL")), None)
 
@@ -103,7 +103,7 @@ class OpenAIClient(LLMClient):
 
     def generate(self, prompt: str, **kwargs) -> str:
         model = str(kwargs.get("model", self.model))
-        system_prompt = str(kwargs.get("system_prompt", "你是一个有帮助的助手。"))
+        system_prompt = str(kwargs.get("system_prompt", "You are a helpful assistant."))
         temperature = float(kwargs.get("temperature", self.temperature))
         max_tokens = int(kwargs.get("max_tokens", self.max_tokens))
 
@@ -129,7 +129,7 @@ class OpenAIClient(LLMClient):
         **kwargs,
     ) -> str:
         model = str(kwargs.get("model", self.vision_model))
-        system_prompt = str(kwargs.get("system_prompt", "你是一个有帮助的多模态助手。"))
+        system_prompt = str(kwargs.get("system_prompt", "You are a helpful multimodal assistant."))
         temperature = float(kwargs.get("temperature", self.temperature))
         max_tokens = int(kwargs.get("max_tokens", self.max_tokens))
 
@@ -191,7 +191,7 @@ class OpenAIClient(LLMClient):
 
         if last_error is not None:
             raise last_error
-        raise RuntimeError("OpenAI 调用失败，未知错误")
+        raise RuntimeError("OpenAI request failed with an unknown error")
 
     def _acquire_slot(self) -> None:
         with self._condition:

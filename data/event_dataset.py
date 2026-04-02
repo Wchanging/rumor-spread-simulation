@@ -137,7 +137,7 @@ class EventDatasetLoader:
         normal_events = [event for event in ordered_events if not bool(getattr(event, "is_fake", False))]
 
         if ensure_fake_event and not fake_events:
-            raise ValueError("event_source.ensure_fake_event=true，但数据集中没有谣言事件。")
+            raise ValueError("event_source.ensure_fake_event=true, but no rumor events exist in the dataset.")
 
         if fake_event_count is not None:
             target_fake = max(0, int(fake_event_count))
@@ -147,7 +147,7 @@ class EventDatasetLoader:
 
             if len(fake_events) < target_fake:
                 raise ValueError(
-                    f"event_source.fake_event_count={target_fake}，但数据集中仅有 {len(fake_events)} 个谣言事件。"
+                    f"event_source.fake_event_count={target_fake}, but only {len(fake_events)} rumor events exist in the dataset."
                 )
 
             selected_ids: list[str] = [event.event_id for event in fake_events[:target_fake]]
@@ -201,8 +201,8 @@ class EventDatasetLoader:
         if not media_summary:
             return content_text
         if not content_text:
-            return f"[媒体信息] {media_summary}"
-        return f"{content_text}\n[媒体信息] {media_summary}"
+            return f"[Media info] {media_summary}"
+        return f"{content_text}\n[Media info] {media_summary}"
 
     @staticmethod
     def _resolve_post_file(posts_dir: Path, event_id: str, posts_template: str) -> Path | None:

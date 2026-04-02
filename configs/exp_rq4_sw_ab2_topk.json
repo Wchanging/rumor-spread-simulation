@@ -1,0 +1,181 @@
+﻿{
+  "experiment_name": "exp_rq4_sw_ab2_topk",
+  "llm": {
+    "provider": "openai",
+    "env_file": ".env",
+    "model": "gemini-3.1-flash-lite-preview",
+    "vision_model": "qwen3-vl-plus",
+    "max_concurrency": 10,
+    "min_concurrency": 1,
+    "retry_max_attempts": 4,
+    "retry_base_delay": 1.0,
+    "retry_max_delay": 8.0,
+    "request_timeout": 60,
+    "adaptive_concurrency": true
+  },
+  "recording": {
+    "enabled": true,
+    "output_root": "output",
+    "record_user_trace": true,
+    "flush_every_round": true,
+    "pretty_json_output": true,
+    "keep_metrics_history": true,
+    "save_plots": true,
+    "plot_profile": "concise",
+    "max_content_chars": 300,
+    "log_pruning": {
+      "mode": "full",
+      "risk_score_threshold": 0.65,
+      "belief_threshold": 0.55,
+      "low_trust_threshold": 0.25,
+      "periodic_full_round_interval": 10,
+      "summary_decision_limit": 4,
+      "summary_feed_limit": 6
+    }
+  },
+  "user_source_config_path": "configs/user_sources/default_users_100.json",
+  "event_source": {
+    "mode": "csv",
+    "events_file": "data/processed/events_12/events.csv",
+    "posts_dir": "data/processed/events_12",
+    "posts_template": "{event_id}.csv",
+    "randomize_selection": true,
+    "max_events": 6,
+    "ensure_fake_event": true,
+    "fake_event_count": 3,
+    "pure_rumor_mode": true,
+    "exclude_evidence_posts_in_fake": true,
+    "official_only_evidence_pool": true,
+    "seed_count": 2,
+    "generated_rumor_posts": true
+  },
+  "network": {
+    "type": "small_world",
+    "k": 4,
+    "p": 0.3,
+    "persistence": {
+      "enabled": true,
+      "path": "data/processed/networks/exp_rq2_sw_shared.json",
+      "reuse_if_exists": true,
+      "save_after_build": true
+    }
+  },
+  "user_model": {
+    "attention_budget": 2,
+    "ensure_rumor_in_attention": false,
+    "min_rumor_items_in_attention": 0,
+    "ensure_non_fake_event_in_attention": false,
+    "min_non_fake_items_in_attention": 1,
+    "max_fake_items_in_attention": -1,
+    "rumor_priority_boost": 0.0,
+    "intervention_priority_boost": 0.18,
+    "event_repeat_penalty": 0.22,
+    "online_probability": 0.7,
+    "platform_trust": 0.4,
+    "share_tendency": 0.4,
+    "trust_threshold": 0.5
+  },
+  "action_model": {
+    "belief_threshold": 0.1,
+    "enable_rewrite_share": true,
+    "rewrite_share_ratio": 0.25,
+    "enable_like": true,
+    "like_probability_base": 0.08,
+    "like_confidence_bonus": 0.25,
+    "disagree_like_probability": 0.02,
+    "blind_user_mode": true,
+    "use_truth_label_in_policy": false
+  },
+  "llm_user_simulation": {
+    "enabled": true,
+    "blind_user_mode": true,
+    "use_truth_label_in_prompt": false,
+    "use_truth_label_in_attention_prompt": false,
+    "use_truth_label_in_base_update": false,
+    "memory_items": 3,
+    "max_llm_items_per_round": 3,
+    "use_llm_action_decision": true,
+    "use_llm_attention_decision": false,
+    "attention_min_browse": 1,
+    "attention_max_browse": 3,
+    "attention_candidate_limit": 8,
+    "allow_llm_rewrite_text": true,
+    "belief_delta_clip": 0.2,
+    "enable_llm_trust_update": false,
+    "trust_delta_clip": 0.08,
+    "max_thought_chars": 150
+  },
+  "intervention": {
+    "strategy": "TargetTopKSpreaders",
+    "k": 20,
+    "tone_style": "assertive",
+    "cost_per_post": 1.0,
+    "start_timestep": 3,
+    "interval": 1,
+    "end_timestep": 14,
+    "posts_per_round": 10,
+    "max_posts_per_event": 10,
+    "event_selection_mode": "risk_weighted",
+    "recent_action_window": 2,
+    "min_share_count": 1,
+    "recent_share_weight": 1.0,
+    "total_share_weight": 0.5,
+    "degree_weight": 0.3,
+    "event_heat_weight": 0.8,
+    "event_misbelief_weight": 1.4,
+    "event_coverage_gap_weight": 0.6,
+    "activation": {
+      "start_timestep": 0,
+      "min_fake_shares": 6
+    }
+  },
+  "simulation": {
+    "T": 20,
+    "n_runs": 5,
+    "decision_workers": 10,
+    "runtime_monitor": {
+      "show_progress_bar": true,
+      "show_round_summary": true,
+      "progress_mininterval": 0.2
+    },
+    "activation": {
+      "min_active_ratio": 0.2,
+      "target_active_ratio": 0.6,
+      "max_active_ratio": 0.8,
+      "inactivity_boost_per_round": 0.05,
+      "inactivity_boost_cap": 0.35
+    },
+    "feed_window": 4,
+    "initial_content_release": {
+      "enabled": true,
+      "use_source_timestamp": false,
+      "max_timestep": 1
+    },
+    "feed_event_allocator": {
+      "enabled": true,
+      "temperature": 1.75,
+      "pool_multiplier": 2.0,
+      "max_events": 6,
+      "social_weight": 0.15,
+      "popularity_weight": 0.6,
+      "novelty_weight": 1.2,
+      "fatigue_weight": 1.1,
+      "early_diversity_rounds": 6,
+      "early_event_cap": 2
+    },
+    "feed_ranking": {
+      "unseen_weight": 1.0,
+      "seen_min_weight": 0.05,
+      "seen_max_weight": 0.85,
+      "seen_decay_tau": 5.0
+    },
+    "feed_fallback": {
+      "enabled": true,
+      "allow_global": true,
+      "rumor_candidate_fallback": false,
+      "rumor_candidate_fallback_count": 1
+    },
+    "max_feed_size": 6,
+    "seed": 2026
+  }
+}

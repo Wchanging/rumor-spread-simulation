@@ -76,10 +76,10 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
         try:
             import yaml  # type: ignore
         except Exception as exc:
-            raise RuntimeError("读取YAML失败，请安装PyYAML或改用JSON配置。") from exc
+            raise RuntimeError("Failed to read YAML. Install PyYAML or use JSON config.") from exc
         return yaml.safe_load(text)
 
-    raise ValueError(f"不支持的配置格式: {suffix}")
+    raise ValueError(f"Unsupported config format: {suffix}")
 
 
 def resolve_path(base_dir: Path, raw_path: str | None) -> Path | None:
@@ -110,7 +110,7 @@ def build_llm_client(
         if env_file:
             cfg["env_file"] = env_file
         return OpenAIClient.from_config(cfg)
-    raise ValueError(f"不支持的 llm provider: {provider}")
+    raise ValueError(f"Unsupported llm provider: {provider}")
 
 
 def resolve_post_file(posts_dir: Path, event_id: str, posts_template: str) -> Path | None:
@@ -202,17 +202,17 @@ def fallback_generate_posts(source_texts: list[str], rumor_claim: str, count: in
     if not source_texts:
         return []
     patterns = [
-        "网传消息：{text}",
-        "有人在群里说：{text}",
-        "看到消息称：{text}",
-        "据说：{text}",
-        "未证实信息：{text}",
+        "Online rumor says: {text}",
+        "Someone in a group said: {text}",
+        "A message claims: {text}",
+        "It is said that: {text}",
+        "Unverified information: {text}",
     ]
     results: list[str] = []
     for idx in range(count):
         source = source_texts[idx % len(source_texts)]
         pattern = patterns[idx % len(patterns)]
-        marker = rng.choice(["", "，听着挺真", "，很多人都在转", "，你们怎么看"])
+        marker = rng.choice(["", ", sounds plausible", ", many people are sharing this", ", what do you think?"])
         results.append((pattern.format(text=source[:120]) + marker)[:180])
     return results
 
@@ -235,7 +235,7 @@ def generate_posts_for_event(
     rounds = max(1, math.ceil(total_count / max(1, batch_size)))
     progress_bar = None
     if show_progress:
-        progress_bar = tqdm(total=total_count, desc=f"生成 {event_id}", leave=False, unit="post")
+        progress_bar = tqdm(total=total_count, desc=f"Generating {event_id}", leave=False, unit="post")
 
     for i in range(rounds):
         before_count = len(generated)
@@ -246,22 +246,22 @@ def generate_posts_for_event(
         rumor_claim = str(event_desc or "").strip()[:220]
         evidence_fact = str(event_evidence or "").strip()[:220]
         prompt = (
-            f"事件ID: {event_id}\n"
-            f"谣言核心说法(可改写扩写): {rumor_claim}\n"
-            f"辟谣事实要点(仅用于避免写成辟谣帖): {evidence_fact}\n"
-            f"已有网传说法样本: {json.dumps(source_texts, ensure_ascii=False)}\n"
-            f"已生成样本(避免重复，尽量多样性一些，模拟各种类型的用户): {json.dumps(generated[-8:], ensure_ascii=False)}\n"
-            f"请生成 {ask_n} 条新的谣言传播帖，要求：口语化、彼此不重复、与谣言核心说法一致但措辞不同、每条不超过200字。\n"
-            "必须满足：\n"
-            "1) 站在网传/听说/转述角度写，不要写辟谣、澄清、官方回应、求证结论。\n"
-            "2) 不要出现‘这是谣言/不实/别信/勿信/经核实/官方辟谣/并非’等表达。\n"
-            "3) 不要直接复述辟谣事实要点。 \n"
-            "4) 多样性一些，模拟各种类型的用户发帖人，营销号，普通用户，吃瓜群众等不同风格的表达"
+            f"Event ID: {event_id}\n"
+            f"Core rumor claim (can be paraphrased/expanded): {rumor_claim}\n"
+            f"Debunking facts (only to prevent debunk-style writing): {evidence_fact}\n"
+            f"Existing rumor-style samples: {json.dumps(source_texts, ensure_ascii=False)}\n"
+            f"Already generated samples (avoid duplication, increase diversity across user styles): {json.dumps(generated[-8:], ensure_ascii=False)}\n"
+            f"Generate {ask_n} new rumor-spreading posts. Requirements: colloquial wording, non-duplicative, consistent with the core rumor claim but rephrased, <= 200 characters each.\n"
+            "Must satisfy:\n"
+            "1) Write from rumor/forwarded/hearsay perspective; do not write debunking/clarification/official verification conclusions.\n"
+            "2) Avoid phrases like 'this is a rumor', 'false', 'do not trust', 'verified', or 'officially debunked'.\n"
+            "3) Do not directly restate debunking fact points.\n"
+            "4) Keep diverse expression styles (e.g., marketing account, ordinary user, gossip observer)."
         )
         system_prompt = (
-            "你是社交平台谣言帖改写助手。"
-            "只生成谣言传播口吻，不生成辟谣或纠错口吻。"
-            "只输出JSON，格式必须是{\"posts\":[\"...\",\"...\"]}，不要任何解释。"
+            "You are a social-platform rumor-post rewriting assistant."
+            " Generate only rumor-propagation tone, not debunking or correction tone."
+            " Output JSON only in the form {\"posts\":[\"...\",\"...\"]} with no explanations."
         )
 
         batch: list[str] = []
@@ -398,27 +398,28 @@ def patch_existing_generated_post_times(generated_file: Path, patched_times: lis
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="为每个谣言事件离线生成补充帖CSV。")
-    parser.add_argument("--config", default=None, help="可选：实验配置文件路径（JSON/YAML）")
-    parser.add_argument("--events-file", default=None, help="事件总表CSV路径")
-    parser.add_argument("--posts-dir", default=None, help="原始事件帖子目录")
-    parser.add_argument("--posts-template", default="{event_id}.csv", help="原始帖子文件模板")
-    parser.add_argument("--per-event", type=int, default=30, help="每个谣言事件生成帖子数")
-    parser.add_argument("--source-posts-per-event", type=int, default=6, help="每个事件用于改写的源帖数量")
-    parser.add_argument("--batch-size", type=int, default=10, help="单次LLM请求生成数量")
-    parser.add_argument("--use-llm", action="store_true", help="启用LLM生成（默认关闭，使用模板变体）")
-    parser.add_argument("--llm-provider", default="openai", choices=["openai", "mock"], help="离线生成使用的LLM提供方")
-    parser.add_argument("--llm-env-file", default=None, help="可选：OpenAI环境变量文件路径")
-    parser.add_argument("--llm-model", default="gpt-4o-mini", help="OpenAI模型名")
-    parser.add_argument("--llm-max-concurrency", type=int, default=4, help="OpenAI并发上限")
-    parser.add_argument("--overwrite", action="store_true", help="强制覆盖已存在的生成文件")
-    parser.add_argument("--output-dir", default="data/processed/generated_rumor_posts", help="生成帖输出目录")
-    parser.add_argument("--output-template", default="{event_id}_generated.csv", help="生成帖文件名模板")
-    parser.add_argument("--base-likes", type=int, default=-1, help="生成帖基础likes，<0表示自动按源帖估计")
-    parser.add_argument("--base-comments", type=int, default=-1, help="生成帖基础comments，<0表示自动按源帖估计")
-    parser.add_argument("--base-retweet", type=int, default=-1, help="生成帖基础retweet，<0表示自动按源帖估计")
-    parser.add_argument("--seed", type=int, default=2026, help="随机种子")
-    parser.add_argument("--patch-existing-timestamps", action="store_true", help="只修复已生成CSV的PostTime，不生成新文本")
+    parser = argparse.ArgumentParser(description="Offline generation of supplemental CSV posts for each rumor event.")
+    parser.add_argument("--config", default=None, help="Optional experiment config file path (JSON/YAML)")
+    parser.add_argument("--events-file", default=None, help="Event master CSV path")
+    parser.add_argument("--posts-dir", default=None, help="Directory of source event posts")
+    parser.add_argument("--posts-template", default="{event_id}.csv", help="Source post filename template")
+    parser.add_argument("--per-event", type=int, default=30, help="Number of generated posts per rumor event")
+    parser.add_argument("--source-posts-per-event", type=int, default=6, help="Number of source posts per event for rewriting")
+    parser.add_argument("--batch-size", type=int, default=10, help="Number of posts generated per LLM request")
+    parser.add_argument("--use-llm", action="store_true", help="Enable LLM generation (disabled by default, uses template variants)")
+    parser.add_argument("--llm-provider", default="openai", choices=["openai", "mock"], help="LLM provider for offline generation")
+    parser.add_argument("--llm-env-file", default=None, help="Optional OpenAI env file path")
+    parser.add_argument("--llm-model", default="gpt-4o-mini", help="OpenAI model name")
+    parser.add_argument("--llm-max-concurrency", type=int, default=4, help="OpenAI max concurrency")
+    parser.add_argument("--overwrite", action="store_true", help="Force overwrite existing generated files")
+    parser.add_argument("--output-dir", default="data/processed/generated_rumor_posts", help="Output directory for generated posts")
+    parser.add_argument("--output-template", default="{event_id}_generated.csv", help="Output filename template")
+    parser.add_argument("--base-likes", type=int, default=-1, help="Base likes for generated posts; <0 means estimate from source posts")
+    parser.add_argument("--base-comments", type=int, default=-1, help="Base comments for generated posts; <0 means estimate from source posts")
+    parser.add_argument("--base-retweet", type=int, default=-1, help="Base retweet for generated posts; <0 means estimate from source posts")
+    parser.add_argument("--seed", type=int, default=2026, help="Random seed")
+    parser.add_argument("--patch-existing-timestamps", action="store_true",
+                        help="Only patch PostTime in existing generated CSVs; do not generate new text")
     args = parser.parse_args()
 
     config: dict[str, Any] = {}
@@ -443,11 +444,11 @@ def main() -> None:
     output_dir = resolve_path(base_dir, output_dir_raw)
 
     if events_file is None or not events_file.exists():
-        raise FileNotFoundError("events_file 不存在，请传 --events-file 或在 --config 中提供 event_source.events_file")
+        raise FileNotFoundError("events_file does not exist. Pass --events-file or provide event_source.events_file in --config")
     if posts_dir is None or not posts_dir.exists():
-        raise FileNotFoundError("posts_dir 不存在，请传 --posts-dir 或在 --config 中提供 event_source.posts_dir")
+        raise FileNotFoundError("posts_dir does not exist. Pass --posts-dir or provide event_source.posts_dir in --config")
     if output_dir is None:
-        raise FileNotFoundError("output_dir 无效")
+        raise FileNotFoundError("Invalid output_dir")
 
     per_event = int(args.per_event)
     source_limit = int(args.source_posts_per_event)
@@ -485,7 +486,7 @@ def main() -> None:
     fake_events = [event for event in raw_events if bool(event.is_fake)]
 
     summary: list[dict[str, Any]] = []
-    event_iter = tqdm(fake_events, desc="处理fake事件", unit="event")
+    event_iter = tqdm(fake_events, desc="Processing fake events", unit="event")
     for event in event_iter:
         if hasattr(event_iter, "set_postfix_str"):
             event_iter.set_postfix_str(str(event.event_id))

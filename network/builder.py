@@ -215,7 +215,7 @@ def relabel_network_nodes(network: Network, new_node_ids: list[str]) -> Network:
     old_nodes = network.nodes()
     if len(old_nodes) != len(new_node_ids):
         raise ValueError(
-            f"relabel_network_nodes 需要等长节点列表，当前 old={len(old_nodes)}, new={len(new_node_ids)}"
+            f"relabel_network_nodes requires node lists of equal length; current old={len(old_nodes)}, new={len(new_node_ids)}"
         )
 
     mapping = {old: new for old, new in zip(old_nodes, new_node_ids)}
@@ -243,5 +243,5 @@ def load_network(file_path: str | Path) -> Network:
     payload = json.loads(path.read_text(encoding="utf-8"))
     adjacency = payload.get("adjacency", payload)
     if not isinstance(adjacency, dict):
-        raise ValueError("网络文件格式不正确，未找到 adjacency 字段")
+        raise ValueError("Invalid network file format: adjacency field not found")
     return Network.from_dict(adjacency)

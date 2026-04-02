@@ -143,7 +143,7 @@ class RumorAgent(BaseAgent):
 
             memory_thought = str(update_result.get("llm_thought", "")).strip()
             if not memory_thought:
-                memory_thought = f"看到内容后态度变化至 {score:.3f}"
+                memory_thought = f"Belief shifted to {score:.3f} after reading this content"
             self.user_state.add_event_memory(
                 item.event_id,
                 {
@@ -169,8 +169,8 @@ class RumorAgent(BaseAgent):
                     )
                 else:
                     fallback_summary = (
-                        f"t={self._timestep}: 最近态度{score:.3f}，"
-                        f"对内容{item.content_id}的判断为{'倾向相信' if score >= 0 else '倾向怀疑'}。"
+                        f"t={self._timestep}: latest belief {score:.3f}, "
+                        f"judgment on content {item.content_id}: {'leaning to believe' if score >= 0 else 'leaning to doubt'}."
                     )
                     self.user_state.update_long_term_event_memory(
                         item.event_id,
@@ -219,10 +219,10 @@ class RumorAgent(BaseAgent):
     def _rewrite_text(self, content: ContentItem, belief_score: float) -> str:
         source = (content.text or "").strip()
         if not source:
-            return "转述：该信息值得关注，请自行核验来源。"
+            return "Forwarded note: this claim is worth attention; please verify the source yourself."
 
-        stance = "我倾向认同这一说法" if belief_score >= 0 else "我倾向认为这一说法不够可靠"
-        rewritten = f"{stance}。我的理解是：{source[:180]}"
+        stance = "I tend to agree with this claim" if belief_score >= 0 else "I tend to think this claim is not reliable enough"
+        rewritten = f"{stance}. My understanding: {source[:180]}"
         return rewritten[:260]
 
     def _select_with_llm_attention(self, candidates: list[ContentItem]) -> list[ContentItem]:
@@ -259,16 +259,16 @@ class RumorAgent(BaseAgent):
             candidate_payload.append(payload)
 
         prompt = (
-            f"用户画像: {json.dumps(self._profile_for_prompt(), ensure_ascii=False)}"
-            f"\n候选内容列表: {json.dumps(candidate_payload, ensure_ascii=False)}"
-            f"\n请在本轮从候选内容中选择浏览顺序。"
-            f"\n输出要求: browse_count 在 [{lower}, {upper}] 之间；"
-            "ordered_content_ids 必须来自候选content_id。"
+            f"User profile: {json.dumps(self._profile_for_prompt(), ensure_ascii=False)}"
+            f"\nCandidate content list: {json.dumps(candidate_payload, ensure_ascii=False)}"
+            f"\nChoose the browsing order for this round from the candidates."
+            f"\nOutput requirement: browse_count must be within [{lower}, {upper}]; "
+            "ordered_content_ids must come from candidate content_id values."
         )
         system_prompt = (
-            "你在模拟用户浏览行为。"
-            "请只输出一个JSON对象，不要输出额外文字。"
-            "字段固定：browse_count(int), ordered_content_ids(list[str]), thought(string,<=80字)。"
+            "You are simulating user browsing behavior."
+            " Output exactly one JSON object and no extra text."
+            " Fixed fields: browse_count(int), ordered_content_ids(list[str]), thought(string,<=80 chars)."
         )
 
         try:

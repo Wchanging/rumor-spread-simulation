@@ -9,4 +9,4 @@ class DeepSeekClient(LLMClient):
         self.api_key = api_key
 
     def generate(self, prompt: str, **kwargs) -> str:
-        raise NotImplementedError("DeepSeek 客户端尚未接入具体 SDK，请在此方法中完成 API 调用。")
+        raise NotImplementedError("DeepSeek client is not wired to a concrete SDK yet. Implement API calls in this method.")

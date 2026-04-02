@@ -42,10 +42,12 @@ logs/
 # Dataset and generated data
 # Keep code scripts under data/, ignore heavy/raw/generated artifacts
 # =========================
-data/raw/
+data/raw/raw
 data/processed/
-configs/
-
+configs/data/
+configs/user_sources/
+experiments/analysis_exports/
+md/
 # =========================
 # OS files
 # =========================
@@ -60,7 +62,3 @@ Thumbs.db
 # =========================
 # Private docs and notes
 # =========================
-*.md
-experiment_new.md
-experiments.md
-work.md

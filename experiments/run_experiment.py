@@ -54,9 +54,9 @@ def load_config(config_path: str | Path) -> dict:
 
             return yaml.safe_load(text)
         except Exception as exc:
-            raise RuntimeError("读取YAML失败，请安装PyYAML或改用JSON配置文件。") from exc
+            raise RuntimeError("Failed to read YAML. Install PyYAML or use a JSON config file.") from exc
 
-    raise ValueError(f"不支持的配置格式: {suffix}")
+    raise ValueError(f"Unsupported config format: {suffix}")
 
 
 def _resolve_path(base_dir: Path, raw_path: str | None) -> Path | None:
@@ -101,15 +101,15 @@ def _resolve_user_source_config(config: dict, base_dir: Path) -> dict[str, Any]:
 
     resolved_path = _resolve_path(base_dir, str(raw_path))
     if resolved_path is None or not resolved_path.exists():
-        raise FileNotFoundError(f"user_source_config_path 不存在: {raw_path}")
+        raise FileNotFoundError(f"user_source_config_path does not exist: {raw_path}")
 
     loaded = load_config(resolved_path)
     if not isinstance(loaded, dict):
-        raise ValueError("user_source_config_path 文件必须是 JSON/YAML 对象")
+        raise ValueError("user_source_config_path must be a JSON/YAML object")
 
     file_user_source = loaded.get("user_source", loaded)
     if not isinstance(file_user_source, dict):
-        raise ValueError("user_source_config_path 文件中 user_source 必须是对象")
+        raise ValueError("user_source in user_source_config_path must be an object")
 
     return _deep_merge_dict(dict(file_user_source), dict(inline_user_source))
 
@@ -226,7 +226,7 @@ def build_user_profiles(config: dict, base_dir: Path, run_seed: int) -> list[Use
     if mode == "csv":
         csv_path = _resolve_path(base_dir, user_source.get("csv_path"))
         if csv_path is None or not csv_path.exists():
-            raise FileNotFoundError("user_source.mode=csv 但 csv_path 不存在")
+            raise FileNotFoundError("user_source.mode=csv but csv_path does not exist")
         profiles = factory.load_from_csv(csv_path=csv_path, defaults=user_defaults)
     elif mode == "generate":
         generate_cfg = user_source.get("generate", {})
@@ -254,7 +254,7 @@ def build_user_profiles(config: dict, base_dir: Path, run_seed: int) -> list[Use
         if save_path is not None and (not save_path.exists() or not prefer_existing_csv):
             factory.dump_to_csv(profiles, save_path)
     else:
-        raise ValueError(f"不支持的 user_source.mode: {mode}")
+        raise ValueError(f"Unsupported user_source.mode: {mode}")
 
     # Global experiment setting should take precedence over per-user CSV fields.
     if isinstance(user_defaults, dict) and "attention_budget" in user_defaults:
@@ -267,7 +267,7 @@ def build_user_profiles(config: dict, base_dir: Path, run_seed: int) -> list[Use
                 profile.attention_budget = forced_budget
 
     if not profiles:
-        raise RuntimeError("用户列表为空，请检查 user_source 配置")
+        raise RuntimeError("User list is empty. Please check user_source configuration")
     return _normalize_user_ids(profiles)
 
 
@@ -299,9 +299,9 @@ def build_events_from_config(config: dict) -> tuple[dict[str, Event], list]:
     event_cfg = config.get("event", {})
     event = Event(
         event_id=str(event_cfg.get("event_id", "event_1")),
-        description=str(event_cfg.get("description", "未命名事件")),
+        description=str(event_cfg.get("description", "Unnamed event")),
         is_fake=bool(event_cfg.get("is_fake", True)),
-        evidence=str(event_cfg.get("evidence", "暂无权威证据")),
+        evidence=str(event_cfg.get("evidence", "No authoritative evidence available")),
         evidence_posts=list(event_cfg.get("evidence_posts", [])),
     )
     return {event.event_id: event}, []
@@ -317,7 +317,7 @@ def build_events_and_contents(config: dict, base_dir: Path, run_seed: int) -> tu
     events_file = _resolve_path(base_dir, event_source.get("events_file"))
     posts_dir = _resolve_path(base_dir, event_source.get("posts_dir"))
     if events_file is None or posts_dir is None:
-        raise FileNotFoundError("event_source.mode=csv 需要配置 events_file 与 posts_dir")
+        raise FileNotFoundError("event_source.mode=csv requires events_file and posts_dir")
 
     generated_posts_raw = event_source.get("generated_rumor_posts", False)
     generated_posts_cfg = generated_posts_raw if isinstance(generated_posts_raw, dict) else {}
@@ -374,7 +374,7 @@ def create_initial_rumor_seeds(
                 content_id=f"seed_{event_id}_{idx}",
                 event_id=event_id,
                 author_id=user_id,
-                text=f"关于 {event_id} 的未经证实消息 #{idx}",
+                text=f"Unverified message about {event_id} #{idx}",
                 timestamp=0,
                 popularity=1.0,
             )
@@ -508,7 +508,7 @@ def build_intervention_strategy(config: dict, llm_client):
             event_exposure_weight=float(intervention_cfg.get("event_exposure_weight", 0.0)),
             llm_client=llm_client,
         )
-    raise ValueError(f"未知干预策略: {strategy_name}")
+    raise ValueError(f"Unknown intervention strategy: {strategy_name}")
 
 
 def build_or_load_network(config: dict, user_ids: list[str], run_seed: int, base_dir: Path):
@@ -560,7 +560,7 @@ def build_llm_client(config: dict, base_dir: Path, run_seed: int):
         if env_file:
             cfg["env_file"] = str(_resolve_path(base_dir, str(env_file)))
         return OpenAIClient.from_config(cfg)
-    raise ValueError(f"不支持的 llm.provider: {provider}")
+    raise ValueError(f"Unsupported llm.provider: {provider}")
 
 
 def build_recorder(
@@ -873,11 +873,11 @@ def print_terminal_summary(summary: dict[str, Any]) -> None:
     aggregate = dict(summary.get("aggregate", {}))
     run_summaries = list(summary.get("run_summaries", []))
 
-    print(f"实验: {experiment_name}")
-    print(f"运行次数: {n_runs}")
-    print(f"输出目录: {output_dir}")
+    print(f"Experiment: {experiment_name}")
+    print(f"Runs: {n_runs}")
+    print(f"Output directory: {output_dir}")
     print(
-        "聚合指标: "
+        "Aggregate metrics: "
         f"FinalMisbelief(avg)={float(aggregate.get('avg_final_misbelief_ratio', 0.0)):.4f}, "
         f"Cost(avg)={float(aggregate.get('avg_final_intervention_cost', 0.0)):.2f}, "
         f"Shares(avg)={float(aggregate.get('avg_final_total_shares', 0.0)):.1f}"
@@ -886,7 +886,7 @@ def print_terminal_summary(summary: dict[str, Any]) -> None:
     if not run_summaries:
         return
 
-    print("每次运行关键指标:")
+    print("Per-run key metrics:")
     for row in run_summaries:
         run_id = int(row.get("run_id", -1))
         final_misbelief = float(row.get("final_misbelief_ratio", 0.0))

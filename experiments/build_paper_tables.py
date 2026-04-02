@@ -340,10 +340,10 @@ def _build_rq1_rq2_key_metrics_table(agg_rows: list[dict[str, Any]]) -> list[dic
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="从 output 目录聚合论文主表所需指标（AUC/峰值/信任变化等）。")
-    parser.add_argument("--output-root", type=str, default="output", help="实验输出目录")
-    parser.add_argument("--configs-dir", type=str, default="configs", help="配置目录")
-    parser.add_argument("--dest-dir", type=str, default="output/paper_tables", help="聚合结果输出目录")
+    parser = argparse.ArgumentParser(description="Aggregate paper-table metrics from output runs (AUC/peak/trust changes, etc.).")
+    parser.add_argument("--output-root", type=str, default="output", help="Experiment output directory")
+    parser.add_argument("--configs-dir", type=str, default="configs", help="Config directory")
+    parser.add_argument("--dest-dir", type=str, default="output/paper_tables", help="Directory for aggregated outputs")
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parents[1]
@@ -359,7 +359,7 @@ def main() -> None:
             run_rows.append(row)
 
     if not run_rows:
-        raise RuntimeError(f"在 {output_root} 下未发现可用运行结果（run_*/final_summary.json）。")
+        raise RuntimeError(f"No usable run results found under {output_root} (expected run_*/final_summary.json).")
 
     run_fieldnames = [
         "output_exp_dir",
