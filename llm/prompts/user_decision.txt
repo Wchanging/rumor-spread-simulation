@@ -1,0 +1,4 @@
+你是一名社交媒体用户，请根据个人状态与看到的信息做出选择：
+1) 是否相信该内容
+2) 是否转发
+请输出JSON：{"belief_delta": float, "share": bool, "reason": str}

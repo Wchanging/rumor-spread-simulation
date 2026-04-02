@@ -1,0 +1,233 @@
+from __future__ import annotations
+
+import argparse
+import csv
+from pathlib import Path
+from typing import Any
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _read_csv(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        raise FileNotFoundError(f"CSV not found: {path}")
+    with path.open("r", encoding="utf-8", newline="") as fp:
+        return list(csv.DictReader(fp))
+
+
+def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as fp:
+        writer = csv.DictWriter(fp, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key, "") for key in fieldnames})
+
+
+def _parse_rq3_name(experiment_name: str) -> tuple[str, str] | None:
+    # expected: exp_rq3_<cadence>_<phase>
+    # cadence in {steady, burst}, phase in {early, mid, late}
+    parts = str(experiment_name).strip().split("_")
+    if len(parts) != 4 or parts[0] != "exp" or parts[1] != "rq3":
+        return None
+    cadence = parts[2]
+    phase = parts[3]
+    if cadence not in {"steady", "burst"}:
+        return None
+    if phase not in {"early", "mid", "late"}:
+        return None
+    return cadence, phase
+
+
+def _positive_div(numerator: float, denominator: float) -> float | str:
+    if denominator <= 0:
+        return ""
+    return numerator / denominator
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="RQ3 时机×节奏分析（steady/burst × early/mid/late）")
+    parser.add_argument(
+        "--aggregates",
+        type=str,
+        default="output/paper_tables/experiment_aggregates.csv",
+        help="build_paper_tables.py 产出的 experiment_aggregates.csv",
+    )
+    parser.add_argument(
+        "--baseline-exp",
+        type=str,
+        default="exp_rq2_sw_no",
+        help="用于 reduction 计算的无干预基线实验名",
+    )
+    parser.add_argument(
+        "--dest",
+        type=str,
+        default="output/paper_tables/rq3_cross_analysis.csv",
+        help="主分析输出 CSV 路径",
+    )
+    args = parser.parse_args()
+
+    project_root = Path(__file__).resolve().parents[1]
+    aggregates_path = (project_root / args.aggregates).resolve()
+    dest_path = (project_root / args.dest).resolve()
+
+    rows = _read_csv(aggregates_path)
+    baseline_row = next((row for row in rows if row.get("experiment_name") == args.baseline_exp), None)
+
+    baseline_final = _safe_float(baseline_row.get("final_misbelief_ratio_mean")) if baseline_row else None
+    baseline_rumor_auc = _safe_float(baseline_row.get("rumor_exposure_auc_mean")) if baseline_row else None
+    baseline_peak_heat = _safe_float(baseline_row.get("peak_rumor_exposure_rate_mean")) if baseline_row else None
+
+    by_group: dict[tuple[str, str], dict[str, str]] = {}
+    for row in rows:
+        parsed = _parse_rq3_name(str(row.get("experiment_name", "")))
+        if parsed is None:
+            continue
+        by_group[parsed] = row
+
+    ordered_phases = ["early", "mid", "late"]
+    ordered_cadence = ["steady", "burst"]
+
+    output_rows: list[dict[str, Any]] = []
+    for cadence in ordered_cadence:
+        for phase in ordered_phases:
+            row = by_group.get((cadence, phase))
+            if row is None:
+                continue
+
+            final_misinfo = _safe_float(row.get("final_misbelief_ratio_mean"))
+            rumor_auc = _safe_float(row.get("rumor_exposure_auc_mean"))
+            peak_heat = _safe_float(row.get("peak_rumor_exposure_rate_mean"))
+            cost = _safe_float(row.get("final_intervention_cost_mean"))
+
+            result: dict[str, Any] = {
+                "cadence": cadence,
+                "phase": phase,
+                "experiment_name": row.get("experiment_name", ""),
+                "final_misinformation_prevalence": final_misinfo,
+                "cumulative_rumor_exposure_auc": rumor_auc,
+                "peak_heat": peak_heat,
+                "cost": cost,
+            }
+
+            if baseline_final is not None:
+                result["final_misinformation_reduction"] = baseline_final - final_misinfo
+            if baseline_rumor_auc is not None:
+                result["cumulative_rumor_exposure_reduction"] = baseline_rumor_auc - rumor_auc
+            if baseline_peak_heat is not None:
+                result["peak_heat_reduction"] = baseline_peak_heat - peak_heat
+
+            final_red = _safe_float(result.get("final_misinformation_reduction", 0.0), 0.0)
+            rumor_red = _safe_float(result.get("cumulative_rumor_exposure_reduction", 0.0), 0.0)
+            peak_red = _safe_float(result.get("peak_heat_reduction", 0.0), 0.0)
+
+            result["cost_efficiency_final_misinfo_per_cost"] = _positive_div(final_red, cost)
+            result["cost_efficiency_rumor_exposure_per_cost"] = _positive_div(rumor_red, cost)
+            result["cost_efficiency_peak_heat_per_cost"] = _positive_div(peak_red, cost)
+
+            output_rows.append(result)
+
+    # marginal effects
+    # 1) timing marginal: within same cadence, adjacent phase differences
+    timing_marginal_rows: list[dict[str, Any]] = []
+    for cadence in ordered_cadence:
+        row_early = next((r for r in output_rows if r["cadence"] == cadence and r["phase"] == "early"), None)
+        row_mid = next((r for r in output_rows if r["cadence"] == cadence and r["phase"] == "mid"), None)
+        row_late = next((r for r in output_rows if r["cadence"] == cadence and r["phase"] == "late"), None)
+
+        pairs = [
+            ("early_vs_mid", row_early, row_mid),
+            ("mid_vs_late", row_mid, row_late),
+            ("early_vs_late", row_early, row_late),
+        ]
+        for tag, left, right in pairs:
+            if left is None or right is None:
+                continue
+            timing_marginal_rows.append(
+                {
+                    "cadence": cadence,
+                    "comparison": tag,
+                    "delta_final_misinformation_reduction": _safe_float(left.get("final_misinformation_reduction")) - _safe_float(right.get("final_misinformation_reduction")),
+                    "delta_cumulative_rumor_exposure_reduction": _safe_float(left.get("cumulative_rumor_exposure_reduction")) - _safe_float(right.get("cumulative_rumor_exposure_reduction")),
+                    "delta_peak_heat_reduction": _safe_float(left.get("peak_heat_reduction")) - _safe_float(right.get("peak_heat_reduction")),
+                    "delta_cost_efficiency_final": _safe_float(left.get("cost_efficiency_final_misinfo_per_cost")) - _safe_float(right.get("cost_efficiency_final_misinfo_per_cost")),
+                    "delta_cost_efficiency_rumor": _safe_float(left.get("cost_efficiency_rumor_exposure_per_cost")) - _safe_float(right.get("cost_efficiency_rumor_exposure_per_cost")),
+                    "delta_cost_efficiency_peak_heat": _safe_float(left.get("cost_efficiency_peak_heat_per_cost")) - _safe_float(right.get("cost_efficiency_peak_heat_per_cost")),
+                }
+            )
+
+    # 2) cadence marginal: burst - steady at same phase
+    cadence_marginal_rows: list[dict[str, Any]] = []
+    for phase in ordered_phases:
+        burst = next((r for r in output_rows if r["cadence"] == "burst" and r["phase"] == phase), None)
+        steady = next((r for r in output_rows if r["cadence"] == "steady" and r["phase"] == phase), None)
+        if burst is None or steady is None:
+            continue
+        cadence_marginal_rows.append(
+            {
+                "phase": phase,
+                "comparison": "burst_minus_steady",
+                "delta_final_misinformation_reduction": _safe_float(burst.get("final_misinformation_reduction")) - _safe_float(steady.get("final_misinformation_reduction")),
+                "delta_cumulative_rumor_exposure_reduction": _safe_float(burst.get("cumulative_rumor_exposure_reduction")) - _safe_float(steady.get("cumulative_rumor_exposure_reduction")),
+                "delta_peak_heat_reduction": _safe_float(burst.get("peak_heat_reduction")) - _safe_float(steady.get("peak_heat_reduction")),
+                "delta_cost_efficiency_final": _safe_float(burst.get("cost_efficiency_final_misinfo_per_cost")) - _safe_float(steady.get("cost_efficiency_final_misinfo_per_cost")),
+                "delta_cost_efficiency_rumor": _safe_float(burst.get("cost_efficiency_rumor_exposure_per_cost")) - _safe_float(steady.get("cost_efficiency_rumor_exposure_per_cost")),
+                "delta_cost_efficiency_peak_heat": _safe_float(burst.get("cost_efficiency_peak_heat_per_cost")) - _safe_float(steady.get("cost_efficiency_peak_heat_per_cost")),
+            }
+        )
+
+    fields = [
+        "cadence",
+        "phase",
+        "experiment_name",
+        "final_misinformation_prevalence",
+        "final_misinformation_reduction",
+        "cumulative_rumor_exposure_auc",
+        "cumulative_rumor_exposure_reduction",
+        "peak_heat",
+        "peak_heat_reduction",
+        "cost",
+        "cost_efficiency_final_misinfo_per_cost",
+        "cost_efficiency_rumor_exposure_per_cost",
+        "cost_efficiency_peak_heat_per_cost",
+    ]
+    _write_csv(dest_path, output_rows, fields)
+
+    timing_dest = dest_path.with_name(dest_path.stem + "_timing_marginal" + dest_path.suffix)
+    timing_fields = [
+        "cadence",
+        "comparison",
+        "delta_final_misinformation_reduction",
+        "delta_cumulative_rumor_exposure_reduction",
+        "delta_peak_heat_reduction",
+        "delta_cost_efficiency_final",
+        "delta_cost_efficiency_rumor",
+        "delta_cost_efficiency_peak_heat",
+    ]
+    _write_csv(timing_dest, timing_marginal_rows, timing_fields)
+
+    cadence_dest = dest_path.with_name(dest_path.stem + "_cadence_marginal" + dest_path.suffix)
+    cadence_fields = [
+        "phase",
+        "comparison",
+        "delta_final_misinformation_reduction",
+        "delta_cumulative_rumor_exposure_reduction",
+        "delta_peak_heat_reduction",
+        "delta_cost_efficiency_final",
+        "delta_cost_efficiency_rumor",
+        "delta_cost_efficiency_peak_heat",
+    ]
+    _write_csv(cadence_dest, cadence_marginal_rows, cadence_fields)
+
+    print(f"RQ3 cross analysis written: {dest_path}")
+    print(f"RQ3 timing marginal written: {timing_dest}")
+    print(f"RQ3 cadence marginal written: {cadence_dest}")
+
+
+if __name__ == "__main__":
+    main()

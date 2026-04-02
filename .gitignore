@@ -1,0 +1,66 @@
+# =========================
+# Python bytecode / cache
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# =========================
+# Virtual environments
+# =========================
+.venv/
+venv/
+env/
+
+# =========================
+# Local IDE/editor settings
+# =========================
+.vscode/
+.idea/
+
+
+# =========================
+# Secrets / local config
+# =========================
+.env
+.env.*
+*.env
+
+
+# =========================
+# Runtime outputs / logs
+# =========================
+output/
+logs/
+*.log
+
+# =========================
+# Dataset and generated data
+# Keep code scripts under data/, ignore heavy/raw/generated artifacts
+# =========================
+data/raw/
+data/processed/
+configs/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Optional local caches
+# =========================
+.cache/
+
+# =========================
+# Private docs and notes
+# =========================
+*.md
+experiment_new.md
+experiments.md
+work.md
